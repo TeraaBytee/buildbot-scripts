@@ -1,18 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 
-# Copyright 2022 TeraaBytee
+#   Copyright (C) 2022 TeraaBytee
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#       http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
 MainPath=$(pwd)
 
@@ -51,24 +51,56 @@ time_count(){
 git config --global user.name "TeraaBytee"
 git config --global user.email "terabyte3766@gmail.com"
 
-text="[===== <b>Time to DerpFest A12</b> =====]" msg
+text="[=========== <b>Time to DerpFest</b> ===========]" msg
 
 # Repo init
 repo init -u git@github.com:DerpFest-12/manifest.git -b 12 --depth=1
 
 # Repo sync
-RESYNC=0
-if [ $RESYNC = "1" ]; then
+RESYNC='0'
+if [[ $RESYNC = '1' ]]; then
     text="<code>repo sync . . .</code>" msg
     time_start
     repo sync -c --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j$(nproc --all)
     time_count
     text="<b>Sync finish in</b>:%0A<code>$TIME_COUNT</code>" msg
+elif [[ $RESYNC = '0' ]]; then
+    text="<code>skip sync source</code>" msg
+fi
+
+# Clone tree
+CloneTree='0'
+if [[ $CloneTree = '1' ]]; then
+    TreeType="begonia"
+    if [[ $TreeType = "common" ]]; then
+        git clone git@github.com:DerpFest-begonia/device_mediatek_common -b 12 device/mediatek/common
+        git clone git@github.com:DerpFest-begonia/device_mediatek_sepolicy_vndr -b 12 device/mediatek/sepolicy_vndr
+        git clone git@github.com:DerpFest-begonia/device_xiaomi_begonia -b 12 device/xiaomi/begonia
+        git clone git@github.com:DerpFest-begonia/vendor_xiaomi_begonia -b 12 vendor/xiaomi/begonia
+        git clone git@github.com:DerpFest-begonia/kernel_xiaomi_begonia -b 12 kernel/xiaomi/begonia --depth=1
+        git clone git@github.com:DerpFest-begonia/vendor_mediatek_ims -b 12 vendor/mediatek/ims
+        git clone git@github.com:DerpFest-begonia/vendor_mediatek_interfaces -b 12 vendor/mediatek/interfaces
+        git clone git@github.com:DerpFest-begonia/vendor_mediatek-opensource -b 12 vendor/mediatek/opensource
+        git clone https://github.com/PixelExperience/packages_resources_devicesettings -b twelve packages/resource/devicesettings-custom
+    elif [[ $TreeType = "begonia" ]]; then
+        git clone git@github.com:TeraaBytee/device_mediatek_sepolicy -b 12 device/mediatek/sepolicy
+        git clone git@github.com:TeraaBytee/device_xiaomi_begonia -b 12 device/xiaomi/begonia
+        git clone git@github.com:TeraaBytee/vendor_xiaomi_begonia -b 12 vendor/xiaomi/begonia
+        git clone git@github.com:TeraaBytee/vendor_xiaomi_begonia-ims -b 12 vendor/xiaomi/begonia-ims
+        git clone git@github.com:TeraaBytee/kernel_xiaomi_begonia -b 12 kernel/xiaomi/begonia --depth=1
+    fi
 fi
 
 # Building ROM
-BUILD_START=1
-if [ $BUILD_START = "1" ]; then
+BUILD_START='1'
+if [[ $BUILD_START = '1' ]]; then
+    BUILD_TYPE="CI"
+    if [[ $BUILD_TYPE = "CI" ]]; then
+        sed -i s/"DERP_BUILDTYPE :=.*"/"DERP_BUILDTYPE := CI"/g device/xiaomi/begonia/derp_begonia.mk
+    elif [[ $BUILD_TYPE = "Official" ]]; then
+        sed -i s/"DERP_BUILDTYPE :=.*"/"DERP_BUILDTYPE := Official"/g device/xiaomi/begonia/derp_begonia.mk
+    fi
+
     text="<code>lunch derp_begonia-userdebug</code>" msg
     source build/envsetup.sh && lunch derp_begonia-userdebug
 
@@ -81,39 +113,47 @@ if [ $BUILD_START = "1" ]; then
     mka derp -j$(nproc --all)
     time_count
 
-    # Upload
-    FileZip=$(echo $MainPath/out/target/product/begonia/DerpFest-*.zip)
-    json="$MainPath/out/target/product/begonia/begonia.json"
+    if [[ $BUILD_TYPE = "CI" ]]; then
+        sed -i s/"DERP_BUILDTYPE :=.*"/"DERP_BUILDTYPE := Official"/g device/xiaomi/begonia/derp_begonia.mk
+    fi
 
-    if [ ! -e $FileZip ]; then
+    # Upload
+    FileZip=$(echo out/target/product/begonia/DerpFest-*.zip)
+    FileSize=$(du -h out/target/product/begonia/DerpFest-*.zip | awk '{ print $1 }')
+    json="out/target/product/begonia/begonia.json"
+
+    if [[ ! -e $FileZip ]]; then
         cat out/error.log > error.log
-        document="$MainPath/error.log"
+        document="error.log"
         caption="$(date)" upload
         text="$(
         printf "<b>Build fail in</b>:\n"
         printf "<code>$TIME_COUNT</code>\n\n"
-        printf "[======== <b>Yahaha Wahyu</b> ========]\n"
+        printf "[============ <b>Yahaha Wahyu</b> ============]\n"
         )" msg
     else
         document=$json
         caption="$(date)" upload
-        LINK=$(gdrive upload --share $FileZip | grep download)
+        LINK=$(gdrive upload --share --parent 1zQ8gUqQtBM3BRxlNMzSgh0tPjQM-64o5 $FileZip | grep download)
         text="$(
-        printf "[======== <b>Update BuildBot</b> ========]\n\n"
-        printf "<code>PLATFORM_VERSION=12</code>\n"
-        printf "<code>DERP_VERSION=$(cat out/soong.log | grep "DERP_VERSION" | awk '{ print $5 }')</code>\n"
-        printf "<code>WITH_GMS=true</code>\n"
-        printf "<code>TARGET_PRODUCT=derp_begonia</code>\n"
-        printf "<code>$(cat out/soong.log | sed s/Environment:.*//g | grep "TARGET_BUILD_VARIANT=" | awk '{ print $4 }')</code>\n"
-        printf "<code>TARGET_ARCH=arm64</code>\n"
-        printf "<code>TARGET_ARCH_VARIANT=armv8-a</code>\n"
-        printf "<code>TARGET_CPU_VARIANT=generic</code>\n"
-        printf "<code>BUILD_ID=$(cat out/soong.log | grep "BUILD_ID" | awk '{ print $5 }')</code>\n\n"
-        printf "[======== <b>Update BuildBot</b> ========]\n\n"
-        printf "$LINK"
+        printf "[======================================]\n\n"
+        printf "BUILD_ID : <code>$(cat out/soong.log | grep "BUILD_ID" | awk '{ print $5 }')</code>\n"
+        printf "PLATFORM_VERSION : <code>12</code>\n"
+        printf "PLATFORM_VERSION_CODENAME : <code>REL</code>\n"
+        printf "TARGET_ARCH : <code>arm64</code>\n"
+        printf "TARGET_ARCH_VARIANT : <code>armv8-a</code>\n"
+        printf "TARGET_BUILD_VARIANT : <code>$(cat out/soong.log | sed s/Environment:.*//g | grep "TARGET_BUILD_VARIANT=" | awk '{ print $4 }' | sed s/"TARGET_BUILD_VARIANT="//g)</code>\n"
+        printf "TARGET_CPU_VARIANT : <code>generic</code>\n"
+        printf "TARGET_PRODUCT : <code>derp_begonia</code>\n"
+        printf "WITH_GMS : <code>true</code>\n"
+        printf "DERP_VERSION : <code>$(cat out/soong.log | grep "DERP_VERSION" | awk '{ print $5 }')</code>\n\n"
+        printf "[======================================]\n\n"
+        printf "Size: ${FileSize}\n"
+        printf "${LINK}"
         )" msg
         text="<b>Build success in</b>:%0A<code>$TIME_COUNT</code>" msg
     fi
-elif [ $BUILD_START = "0" ]; then
+
+elif [[ $BUILD_START = '0' ]]; then
     text="<code>build not started, need bringup for first</code>" msg
 fi
